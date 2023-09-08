@@ -1,116 +1,97 @@
 """
-    Neural Network with 1 hidden layer from scatch
-    By : Sebastian Mora (@Bastian1110)
+Neural Network with 1 hidden layer from scratch
+By: Sebastian Mora (@Bastian1110)
 """
-# Load data from csv and drop quality values
-import pandas as pd
 
+# These libraries provide essential functionalities for data manipulation,
+# mathematical operations, and plotting.
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+
+# Read data from a CSV file into a DataFrame.
 df = pd.read_csv("WineQT.csv")
+
+# Drop the "Id" column as it's not necessary for modeling purposes.
 df.drop("Id", axis=1, inplace=True)
 
+# Separate the dataset into features (X) and the target variable (y).
 X = df.drop("quality", axis=1).values
 y = df["quality"].values
 
-# Fucntion to plot the NN (credit to ChatGPT)
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
-
-
-def plot_nn_with_weights(input_size, hidden_size, output_size, W1, W2, epoch):
-    plt.clf()
-    G = nx.DiGraph()
-    pos = {}
-    layers = [input_size, hidden_size, output_size]
-    count = 0
-    for i, layer in enumerate(layers):
-        for j in range(layer):
-            G.add_node(count)
-            pos[count] = (i, j - layer / 2)
-            count += 1
-    start = 0
-    edge_weights = {}
-    for i, layer in enumerate(layers[:-1]):
-        weights = W1 if i == 0 else W2
-        for j in range(start, start + layer):
-            for k, weight in enumerate(weights[j - start]):
-                target = start + layer + k
-                G.add_edge(j, target)
-                edge_weights[(j, target)] = np.abs(weight)
-        start += layer
-
-    edges = G.edges()
-    weights = [edge_weights[edge] for edge in edges]
-    nx.draw(
-        G,
-        pos,
-        with_labels=False,
-        node_color="salmon",
-        font_weight="italic",
-        node_size=700,
-        font_size=14,
-        width=weights,
-        edge_color="lightblue",
-    )
-    plt.title(f"Neural Network in epoch :  {epoch}")
-    plt.pause(0.1)
-
-
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-
-# Scale the data from the dataset to values from -2 to 2
+# Normalize the features to ensure they have a mean of 0 and standard deviation of 1.
+# This makes the training process smoother and more stable.
 scaler = StandardScaler()
 X = scaler.fit_transform(X)
 
-# Divide the dataset into train and test groups
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+# Split the dataset into training, validation, and test sets. This ensures that we can
+# train the model, tune its parameters, and then evaluate its performance on unseen data.
+X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_val, y_train, y_val = train_test_split(
+    X_temp, y_temp, test_size=0.25, random_state=42
 )
 
-
-# Transforming the y values to a matrix of 1 column
+# Reshape the target arrays to be column vectors. This ensures compatibility during matrix operations.
 y_train = y_train.reshape(-1, 1)
+y_val = y_val.reshape(-1, 1)
 y_test = y_test.reshape(-1, 1)
 
-from sklearn.metrics import mean_squared_error
 
-# Starting the Neural Network
+# Define the neural network's architecture: Input layer size, hidden layer size, and output layer size.
 input_size = X_train.shape[1]
 hidden_size = 10
 output_size = 1
 
+# Initialize weights and biases for the neural network. Weights are initialized with random values,
+# and biases are initialized with zeros.
 weights_input_hidden = np.random.randn(input_size, hidden_size)
 bias_hidden = np.zeros((1, hidden_size))
 weights_hidden_output = np.random.randn(hidden_size, output_size)
 bias_output = np.zeros((1, output_size))
 
-# Parameters for training
+# Define hyperparameters for training.
 learning_rate = 0.01
 epochs = 10000
 
+# Lists to store loss values during training for visualization.
+losses_train = []
+losses_val = []
+
+
 for epoch in range(epochs):
-    # Forward propagation
+    # FORWARD PROPAGATION:
+    # 1. Calculate the weighted sum for the hidden layer and apply the tanh activation function.
+    # 2. Calculate the weighted sum for the output layer.
+    # (Note: No activation function is applied in the output layer in this regression task)
     weighted_sum_hidden = np.dot(X_train, weights_input_hidden) + bias_hidden
     activation_hidden = np.tanh(weighted_sum_hidden)
     weighted_sum_output = np.dot(activation_hidden, weights_hidden_output) + bias_output
     activation_output = weighted_sum_output
 
-    # Loss calculation
+    # Compute the mean squared error loss for the training data.
     loss = mean_squared_error(y_train, activation_output)
+    losses_train.append(loss)
 
+    # Calculate the mean squared error loss for the validation data.
+    # This provides insight into how well the model is generalizing.
+    weighted_sum_hidden_val = np.dot(X_val, weights_input_hidden) + bias_hidden
+    activation_hidden_val = np.tanh(weighted_sum_hidden_val)
+    weighted_sum_output_val = (
+        np.dot(activation_hidden_val, weights_hidden_output) + bias_output
+    )
+    activation_output_val = weighted_sum_output_val
+    loss_val = mean_squared_error(y_val, activation_output_val)
+    losses_val.append(loss_val)
+
+    # Print training progress every 100 epochs.
     if epoch % 100 == 0:
-        print(f"Epoch {epoch}, Loss: {loss}")
-        plot_nn_with_weights(
-            input_size,
-            hidden_size,
-            output_size,
-            weights_input_hidden,
-            weights_hidden_output,
-            epoch,
-        )
+        print(f"Epoch {epoch}, Training Loss: {loss}, Validation Loss: {loss_val}")
 
-    # Backpropagation
+    # BACKPROPAGATION:
+    # Compute the gradients for the weights and biases.
     gradient_weighted_sum_output = activation_output - y_train
     gradient_weights_hidden_output = np.dot(
         activation_hidden.T, gradient_weighted_sum_output
@@ -118,7 +99,6 @@ for epoch in range(epochs):
     gradient_bias_output = np.sum(
         gradient_weighted_sum_output, axis=0, keepdims=True
     ) / len(y_train)
-
     gradient_weighted_sum_hidden = np.dot(
         gradient_weighted_sum_output, weights_hidden_output.T
     ) * (1 - np.power(activation_hidden, 2))
@@ -129,15 +109,13 @@ for epoch in range(epochs):
         gradient_weighted_sum_hidden, axis=0, keepdims=True
     ) / len(y_train)
 
-    # Updating the weights
-    weights_input_hidden -= (
-        learning_rate * gradient_weights_input_hidden
-    )  # Corrected this line
+    # Update the weights and biases using the computed gradients and learning rate.
+    weights_input_hidden -= learning_rate * gradient_weights_input_hidden
     bias_hidden -= learning_rate * gradient_bias_hidden
     weights_hidden_output -= learning_rate * gradient_weights_hidden_output
     bias_output -= learning_rate * gradient_bias_output
 
-# Evaluation with x and y test
+# Use the trained neural network to make predictions on the test set.
 weighted_sum_hidden_test = np.dot(X_test, weights_input_hidden) + bias_hidden
 activation_hidden_test = np.tanh(weighted_sum_hidden_test)
 weighted_sum_output_test = (
@@ -145,38 +123,35 @@ weighted_sum_output_test = (
 )
 activation_output_test = weighted_sum_output_test
 
+# Calculate the mean squared error loss for the test data.
 test_loss = mean_squared_error(y_test, activation_output_test)
 print(f"Evaluation Loss: {test_loss}")
 
 
-def accuracy(y_real, y_pred, umbral=0.5):
-    correct = np.abs(y_real - y_pred) <= umbral
+# Function to compute accuracy based on a given threshold.
+def accuracy(y_real, y_pred, threshold=0.5):
+    """Compute accuracy considering predictions within a certain threshold as correct."""
+    correct = np.abs(y_real - y_pred) <= threshold
     accuracy = np.mean(correct)
     return accuracy
 
 
-# Suponiendo que A2_test son tus predicciones y y_test son las etiquetas reales
-accuracy = accuracy(y_test, activation_output_test)
-print(f"Accuracy: {accuracy * 100:.2f}%")
+# Compute the accuracy for the test data.
+acc = accuracy(y_test, activation_output_test)
+print(f"Accuracy: {acc * 100:.2f}%")
 
-from sklearn.neural_network import MLPRegressor
+# Convert continuous quality values into binary classification (good or not good).
+y_test_classified = (y_test > 6).astype(int)
+predictions_classified = (activation_output_test > 6).astype(int)
 
-# Creating a MLP Regressor (NN with Adam)
-model = MLPRegressor(
-    hidden_layer_sizes=(10,), activation="relu", max_iter=1000000, random_state=42
-)
-model.fit(X_train, y_train)
+# Display confusion matrix and classification report for the binary classification results.
+print(confusion_matrix(y_test_classified, predictions_classified))
+print(classification_report(y_test_classified, predictions_classified))
 
-# Make predictions
-y_pred_train = model.predict(X_train)
-y_pred_test = model.predict(X_test)
-
-# Calculate Mean Squared Error
-mse_train = mean_squared_error(y_train, y_pred_train)
-mse_test = mean_squared_error(y_test, y_pred_test)
-print(f"Train Error: {mse_train}, Test Error: {mse_test}")
-
-# Get acurracy
-accuracy_train = accuracy(y_train, y_pred_train)
-accuracy_test = accuracy(y_test, y_pred_test)
-print(f"Train Accuracy: {accuracy_train}%, Test Accuracy: {accuracy_test}%")
+# Plot the training and validation loss to visualize the training process.
+plt.plot(losses_train, label="Training Loss")
+plt.plot(losses_val, label="Validation Loss")
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.legend()
+plt.show()
