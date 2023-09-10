@@ -12,6 +12,15 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 
+
+# Function to compute accuracy based on a given threshold.
+def accuracy(y_real, y_pred, threshold=0.5):
+    """Compute accuracy considering predictions within a certain threshold as correct."""
+    correct = np.abs(y_real - y_pred) <= threshold
+    accuracy = np.mean(correct)
+    return accuracy
+
+
 # Read data from a CSV file into a DataFrame.
 df = pd.read_csv("WineQT.csv")
 
@@ -139,13 +148,6 @@ for i in range(10):
     # Calculate the mean squared error loss for the test data.
     test_loss = mean_squared_error(y_test, activation_output_test)
     print(f"Evaluation Loss: {test_loss}")
-
-    # Function to compute accuracy based on a given threshold.
-    def accuracy(y_real, y_pred, threshold=0.5):
-        """Compute accuracy considering predictions within a certain threshold as correct."""
-        correct = np.abs(y_real - y_pred) <= threshold
-        accuracy = np.mean(correct)
-        return accuracy
 
     # Compute the accuracy for the test data.
     acc = accuracy(y_test, activation_output_test)
